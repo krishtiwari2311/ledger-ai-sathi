@@ -1,4 +1,3 @@
-
 -- Create enum for transaction types
 CREATE TYPE transaction_type AS ENUM ('income', 'expense');
 
@@ -138,8 +137,8 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION calculate_gst_amounts()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Calculate GST amount based on rate
-  NEW.gst_amount = ROUND((NEW.amount * (NEW.gst_rate::INTEGER / 100.0)), 2);
+  -- Calculate GST amount based on rate (directly using the enum value)
+  NEW.gst_amount = ROUND((NEW.amount * (CAST(NEW.gst_rate AS TEXT)::INTEGER / 100.0)), 2);
   
   -- Calculate total amount
   NEW.total_amount = NEW.amount + NEW.gst_amount;

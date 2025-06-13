@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,70 +6,88 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Search, Filter, Download, IndianRupee } from "lucide-react";
 import { Link } from "react-router-dom";
 import MobileNav from "@/components/MobileNav";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface Transaction {
+  id: string;
+  type: 'income' | 'expense';
+  vendor_name: string;
+  amount: number;
+  gst_amount: number;
+  gst_rate: string;
+  description: string;
+  transaction_date: string;
+  created_at: string;
+  categories?: { name: string };
+}
 
 const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const mockTransactions = [
-    {
-      id: 1,
-      type: "expense",
-      vendor: "Amazon",
-      amount: 2500,
-      gst: 450,
-      description: "Office chair",
-      date: "2024-01-15",
-      category: "Office Supplies"
-    },
-    {
-      id: 2,
-      type: "income",
-      vendor: "Client ABC",
-      amount: 15000,
-      gst: 2700,
-      description: "Web development project",
-      date: "2024-01-14",
-      category: "Services"
-    },
-    {
-      id: 3,
-      type: "expense",
-      vendor: "Flipkart",
-      amount: 1200,
-      gst: 216,
-      description: "Software subscription",
-      date: "2024-01-13",
-      category: "Software"
-    },
-    {
-      id: 4,
-      type: "expense",
-      vendor: "Zomato",
-      amount: 450,
-      gst: 22.5,
-      description: "Client meeting lunch",
-      date: "2024-01-12",
-      category: "Meals"
-    },
-    {
-      id: 5,
-      type: "income",
-      vendor: "Client XYZ",
-      amount: 8000,
-      gst: 1440,
-      description: "Consulting services",
-      date: "2024-01-11",
-      category: "Consulting"
+  const fetchTransactions = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          categories (name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setTransactions(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading transactions",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredTransactions = mockTransactions.filter(transaction => {
-    const matchesSearch = transaction.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  useEffect(() => {
+    fetchTransactions();
+  }, [user]);
+
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = transaction.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterType === "all" || transaction.type === filterType;
     return matchesSearch && matchesFilter;
   });
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN').format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -123,46 +140,46 @@ const Transactions = () => {
 
         {/* Transaction List */}
         <div className="space-y-4">
-          {filteredTransactions.map((transaction) => (
-            <Card key={transaction.id} className="border-0 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'
-                      }`} />
-                      <h3 className="font-semibold text-gray-800">{transaction.vendor}</h3>
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                        {transaction.category}
-                      </span>
+          {filteredTransactions.length > 0 ? (
+            filteredTransactions.map((transaction) => (
+              <Card key={transaction.id} className="border-0 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'
+                        }`} />
+                        <h3 className="font-semibold text-gray-800">{transaction.vendor_name}</h3>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          {transaction.categories?.name || 'Uncategorized'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">{transaction.description}</p>
+                      <p className="text-xs text-gray-500">{formatDate(transaction.transaction_date)}</p>
                     </div>
-                    <p className="text-sm text-gray-600 mb-1">{transaction.description}</p>
-                    <p className="text-xs text-gray-500">{new Date(transaction.date).toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className={`flex items-center space-x-1 ${
-                      transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      <span className="text-sm">{transaction.type === 'income' ? '+' : '-'}</span>
-                      <IndianRupee className="w-4 h-4" />
-                      <span className="text-lg font-bold">{transaction.amount.toLocaleString()}</span>
+                    <div className="text-right">
+                      <div className={`flex items-center space-x-1 ${
+                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        <span className="text-sm">{transaction.type === 'income' ? '+' : '-'}</span>
+                        <IndianRupee className="w-4 h-4" />
+                        <span className="text-lg font-bold">{formatCurrency(transaction.amount)}</span>
+                      </div>
+                      <p className="text-xs text-gray-600">GST: ₹{formatCurrency(transaction.gst_amount)} ({transaction.gst_rate}%)</p>
                     </div>
-                    <p className="text-xs text-gray-600">GST: ₹{transaction.gst}</p>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="border-0 bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-8 text-center">
+                <p className="text-gray-600">No transactions found matching your criteria.</p>
               </CardContent>
             </Card>
-          ))}
+          )}
         </div>
-
-        {filteredTransactions.length === 0 && (
-          <Card className="border-0 bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-8 text-center">
-              <p className="text-gray-600">No transactions found matching your criteria.</p>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <MobileNav />
