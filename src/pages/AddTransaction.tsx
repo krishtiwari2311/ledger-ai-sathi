@@ -1,38 +1,131 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, ArrowLeft } from "lucide-react";
+import { Mic, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import MobileNav from "@/components/MobileNav";
 import VoiceInput from "@/components/VoiceInput";
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 const AddTransaction = () => {
-  const [isListening, setIsListening] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
     type: "",
     vendor: "",
     amount: "",
     gstRate: "18",
     description: "",
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    categoryId: ""
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load categories",
+          variant: "destructive",
+        });
+      } else {
+        setCategories(data || []);
+      }
+    };
+
+    fetchCategories();
+  }, [toast]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Transaction submitted:", formData);
-    toast({
-      title: "Transaction Added",
-      description: `₹${formData.amount} transaction recorded successfully!`
-    });
-    navigate("/dashboard");
+    
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add transactions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.type || !formData.vendor || !formData.amount) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: formData.type as 'income' | 'expense',
+          vendor_name: formData.vendor,
+          amount: parseFloat(formData.amount),
+          gst_rate: formData.gstRate as '0' | '5' | '12' | '18' | '28',
+          description: formData.description || null,
+          transaction_date: formData.date,
+          category_id: formData.categoryId || null,
+          is_voice_entry: false
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: `₹${formData.amount} transaction recorded successfully!`
+      });
+
+      // Reset form
+      setFormData({
+        type: "",
+        vendor: "",
+        amount: "",
+        gstRate: "18",
+        description: "",
+        date: new Date().toISOString().split('T')[0],
+        categoryId: ""
+      });
+
+      // Navigate back to dashboard
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error('Error adding transaction:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add transaction",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVoiceResult = (transcript: string) => {
@@ -88,7 +181,7 @@ const AddTransaction = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="type">Transaction Type</Label>
+                <Label htmlFor="type">Transaction Type *</Label>
                 <Select onValueChange={(value) => setFormData({...formData, type: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select transaction type" />
@@ -101,24 +194,27 @@ const AddTransaction = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="vendor">Vendor/Client</Label>
+                <Label htmlFor="vendor">Vendor/Client *</Label>
                 <Input
                   id="vendor"
                   placeholder="e.g., Amazon, Client Name"
                   value={formData.vendor}
                   onChange={(e) => setFormData({...formData, vendor: e.target.value})}
+                  required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount (₹)</Label>
+                  <Label htmlFor="amount">Amount (₹) *</Label>
                   <Input
                     id="amount"
                     type="number"
-                    placeholder="0"
+                    step="0.01"
+                    placeholder="0.00"
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -136,6 +232,22 @@ const AddTransaction = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={formData.categoryId} onValueChange={(value) => setFormData({...formData, categoryId: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -164,7 +276,7 @@ const AddTransaction = () => {
                   <CardContent className="pt-4">
                     <h4 className="font-semibold text-blue-800 mb-2">GST Calculation</h4>
                     <div className="space-y-1 text-sm">
-                      <p>Base Amount: ₹{formData.amount}</p>
+                      <p>Base Amount: ₹{parseFloat(formData.amount || '0').toFixed(2)}</p>
                       <p>GST ({formData.gstRate}%): ₹{((parseFloat(formData.amount) || 0) * (parseFloat(formData.gstRate) || 0) / 100).toFixed(2)}</p>
                       <p className="font-semibold">Total: ₹{((parseFloat(formData.amount) || 0) * (1 + (parseFloat(formData.gstRate) || 0) / 100)).toFixed(2)}</p>
                     </div>
@@ -175,8 +287,9 @@ const AddTransaction = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700"
+                disabled={loading}
               >
-                Add Transaction
+                {loading ? "Adding Transaction..." : "Add Transaction"}
               </Button>
             </form>
           </CardContent>
