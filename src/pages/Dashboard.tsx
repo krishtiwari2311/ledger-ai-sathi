@@ -3,20 +3,36 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Mic, Upload, Plus, BarChart3, TrendingUp, TrendingDown, IndianRupee } from "lucide-react";
+import { Mic, Upload, Plus, BarChart3, TrendingUp, TrendingDown, IndianRupee, LogOut } from "lucide-react";
 import MobileNav from "@/components/MobileNav";
+import { useAuth } from "@/hooks/useAuth";
+import { useTransactions } from "@/hooks/useTransactions";
 
 const Dashboard = () => {
   const [currentMonth] = useState(new Date().toLocaleString('default', { month: 'long', year: 'numeric' }));
+  const { signOut, user } = useAuth();
+  const { dashboardData, loading } = useTransactions();
 
-  const mockData = {
-    inputGST: 2500,
-    outputGST: 4200,
-    totalIncome: 35000,
-    totalExpenses: 18000,
-    netProfit: 17000,
-    transactionCount: 23
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN').format(amount);
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -32,16 +48,31 @@ const Dashboard = () => {
               <p className="text-sm text-gray-600">{currentMonth}</p>
             </div>
           </div>
-          <Link to="/add-transaction">
-            <Button className="bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add
+          <div className="flex items-center space-x-2">
+            <Link to="/add-transaction">
+              <Button className="bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" onClick={signOut}>
+              <LogOut className="w-4 h-4" />
             </Button>
-          </Link>
+          </div>
         </div>
       </header>
 
       <div className="px-4 py-6 max-w-6xl mx-auto">
+        {/* Welcome message */}
+        {user && (
+          <div className="mb-6 p-4 bg-white/80 backdrop-blur-sm rounded-lg">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Welcome back! 👋
+            </h2>
+            <p className="text-gray-600">Here's your business overview for {currentMonth}</p>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Link to="/add-transaction" className="block">
@@ -97,7 +128,7 @@ const Dashboard = () => {
               <div className="flex items-center space-x-2">
                 <IndianRupee className="w-6 h-6 text-green-600" />
                 <span className="text-3xl font-bold text-green-600">
-                  {mockData.inputGST.toLocaleString()}
+                  {formatCurrency(dashboardData.inputGST)}
                 </span>
               </div>
               <p className="text-sm text-gray-600 mt-1">GST you can claim back</p>
@@ -115,7 +146,7 @@ const Dashboard = () => {
               <div className="flex items-center space-x-2">
                 <IndianRupee className="w-6 h-6 text-red-600" />
                 <span className="text-3xl font-bold text-red-600">
-                  {mockData.outputGST.toLocaleString()}
+                  {formatCurrency(dashboardData.outputGST)}
                 </span>
               </div>
               <p className="text-sm text-gray-600 mt-1">GST you need to pay</p>
@@ -133,7 +164,7 @@ const Dashboard = () => {
               <div className="flex items-center space-x-2">
                 <IndianRupee className="w-5 h-5 text-gray-600" />
                 <span className="text-2xl font-bold text-gray-800">
-                  {mockData.totalIncome.toLocaleString()}
+                  {formatCurrency(dashboardData.totalIncome)}
                 </span>
               </div>
             </CardContent>
@@ -147,7 +178,7 @@ const Dashboard = () => {
               <div className="flex items-center space-x-2">
                 <IndianRupee className="w-5 h-5 text-gray-600" />
                 <span className="text-2xl font-bold text-gray-800">
-                  {mockData.totalExpenses.toLocaleString()}
+                  {formatCurrency(dashboardData.totalExpenses)}
                 </span>
               </div>
             </CardContent>
@@ -161,7 +192,7 @@ const Dashboard = () => {
               <div className="flex items-center space-x-2">
                 <IndianRupee className="w-5 h-5 text-green-600" />
                 <span className="text-2xl font-bold text-green-600">
-                  {mockData.netProfit.toLocaleString()}
+                  {formatCurrency(dashboardData.netProfit)}
                 </span>
               </div>
             </CardContent>
@@ -174,20 +205,31 @@ const Dashboard = () => {
             <CardTitle className="text-lg font-semibold text-gray-800">Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3].map((_, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                  <div>
-                    <p className="font-medium text-gray-800">Office Supplies - Amazon</p>
-                    <p className="text-sm text-gray-600">Today, 2:30 PM</p>
+            {dashboardData.recentTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {dashboardData.recentTransactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="font-medium text-gray-800">{transaction.vendor_name}</p>
+                      <p className="text-sm text-gray-600">{formatDate(transaction.created_at)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {transaction.type === 'income' ? '+' : '-'}₹{formatCurrency(transaction.amount)}
+                      </p>
+                      <p className="text-xs text-gray-600">{transaction.gst_rate}% GST</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-red-600">-₹2,500</p>
-                    <p className="text-xs text-gray-600">18% GST</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No transactions yet</p>
+                <Link to="/add-transaction">
+                  <Button className="mt-4">Add Your First Transaction</Button>
+                </Link>
+              </div>
+            )}
             <Link to="/transactions">
               <Button variant="outline" className="w-full mt-4">
                 View All Transactions

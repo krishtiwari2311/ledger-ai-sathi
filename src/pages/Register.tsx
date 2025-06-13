@@ -7,22 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link, useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    businessType: "",
-    role: "user"
+    businessType: ""
   });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp, user } = useAuth();
 
-  const handleRegister = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock registration - in real app, this would create user in Supabase
-    console.log("Registration attempt:", formData);
-    navigate("/dashboard");
+    setLoading(true);
+    
+    const { error } = await signUp(formData.email, formData.password, formData.name, formData.businessType);
+    
+    if (!error) {
+      navigate("/dashboard");
+    }
+    
+    setLoading(false);
   };
 
   return (
@@ -95,9 +110,10 @@ const Register = () => {
             </div>
             <Button 
               type="submit" 
+              disabled={loading}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700 text-lg font-semibold"
             >
-              Create Account
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
           <div className="mt-6 text-center">
