@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -51,7 +50,8 @@ export const useTransactions = () => {
       const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      const { data: transactions, error } = await supabase
+      // Fetch current month's transactions for dashboard metrics
+      const { data: currentMonthTransactions, error: currentMonthError } = await supabase
         .from('transactions')
         .select(`
           *,
@@ -59,14 +59,26 @@ export const useTransactions = () => {
         `)
         .eq('user_id', user.id)
         .gte('transaction_date', firstDay.toISOString().split('T')[0])
-        .lte('transaction_date', lastDay.toISOString().split('T')[0])
-        .order('created_at', { ascending: false });
+        .lte('transaction_date', lastDay.toISOString().split('T')[0]);
 
-      if (error) throw error;
+      if (currentMonthError) throw currentMonthError;
+
+      // Fetch recent transactions (last 5) regardless of month
+      const { data: recentTransactions, error: recentError } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          categories (name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (recentError) throw recentError;
 
       // Calculate dashboard metrics
-      const income = transactions?.filter(t => t.type === 'income') || [];
-      const expenses = transactions?.filter(t => t.type === 'expense') || [];
+      const income = currentMonthTransactions?.filter(t => t.type === 'income') || [];
+      const expenses = currentMonthTransactions?.filter(t => t.type === 'expense') || [];
 
       const totalIncome = income.reduce((sum, t) => sum + Number(t.amount), 0);
       const totalExpenses = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
@@ -79,8 +91,8 @@ export const useTransactions = () => {
         totalIncome,
         totalExpenses,
         netProfit: totalIncome - totalExpenses,
-        transactionCount: transactions?.length || 0,
-        recentTransactions: transactions?.slice(0, 3) || []
+        transactionCount: currentMonthTransactions?.length || 0,
+        recentTransactions: recentTransactions || []
       });
     } catch (error: any) {
       toast({

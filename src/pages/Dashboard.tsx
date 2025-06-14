@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Mic, Upload, Plus, BarChart3, TrendingUp, TrendingDown, IndianRupee, LogOut } from "lucide-react";
+import { Mic, Upload, Plus, BarChart3, TrendingUp, TrendingDown, IndianRupee, LogOut, Users, Package } from "lucide-react";
 import MobileNav from "@/components/MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -85,14 +84,6 @@ const Dashboard = () => {
               </div>
             </Card>
           </Link>
-          <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white/80 backdrop-blur-sm">
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <Upload className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-800">Upload Bill</span>
-            </div>
-          </Card>
           <Link to="/transactions" className="block">
             <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white/80 backdrop-blur-sm">
               <div className="flex flex-col items-center text-center space-y-2">
@@ -110,6 +101,26 @@ const Dashboard = () => {
                   <TrendingUp className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-sm font-medium text-gray-800">Analytics</span>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/crm" className="block">
+            <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center text-center space-y-2">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-sm font-medium text-gray-800">CRM</span>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/inventory" className="block">
+            <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center text-center space-y-2">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-sm font-medium text-gray-800">Inventory</span>
               </div>
             </Card>
           </Link>
@@ -205,7 +216,7 @@ const Dashboard = () => {
             <CardTitle className="text-lg font-semibold text-gray-800">Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            {dashboardData.recentTransactions.length > 0 ? (
+            {dashboardData?.recentTransactions?.length > 0 ? (
               <div className="space-y-4">
                 {dashboardData.recentTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">

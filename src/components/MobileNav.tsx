@@ -1,6 +1,5 @@
-
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, Plus, TrendingUp, Search } from "lucide-react";
+import { BarChart3, Plus, TrendingUp, Search, Users, Home, FileText, Package } from "lucide-react";
 
 const MobileNav = () => {
   const location = useLocation();
@@ -48,11 +47,26 @@ const MobileNav = () => {
           <TrendingUp className="w-6 h-6" />
           <span className="text-xs">Analytics</span>
         </Link>
-        
-        <div className="flex flex-col items-center space-y-1 p-2 rounded-lg text-gray-600">
-          <div className="w-6 h-6 rounded-full bg-gray-300" />
-          <span className="text-xs">Profile</span>
-        </div>
+
+        <Link 
+          to="/crm" 
+          className={`flex flex-col items-center space-y-1 p-2 rounded-lg ${
+            isActive('/crm') ? 'text-blue-600' : 'text-gray-600'
+          }`}
+        >
+          <Users className="w-6 h-6" />
+          <span className="text-xs">CRM</span>
+        </Link>
+
+        <Link 
+          to="/inventory" 
+          className={`flex flex-col items-center space-y-1 p-2 rounded-lg ${
+            isActive('/inventory') ? 'text-blue-600' : 'text-gray-600'
+          }`}
+        >
+          <Package className="w-6 h-6" />
+          <span className="text-xs">Inventory</span>
+        </Link>
       </div>
     </nav>
   );
