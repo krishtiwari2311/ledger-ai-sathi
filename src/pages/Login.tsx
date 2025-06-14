@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +61,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12"
                 required
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -74,6 +74,7 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12"
                 required
+                autoComplete="current-password"
               />
             </div>
             <Button 

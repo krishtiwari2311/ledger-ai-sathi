@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, ArrowLeft } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, Upload, FileText } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import MobileNav from "@/components/MobileNav";
@@ -15,9 +15,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import { Database } from "@/integrations/supabase/types";
+import { Pie, Cell, PieChart, Tooltip, Legend } from "recharts";
+import { extractTransactionData } from "@/integrations/gemini-flash/client";
 
 type TransactionType = Database["public"]["Enums"]["transaction_type"];
-type GSTRate = Database["public"]["Enums"]["gst_rate"];
+type GSTRate = "0" | "5" | "12" | "18" | "28";
 
 interface FormData {
   type: TransactionType | "";
@@ -40,6 +42,8 @@ interface SpeechSynthesis extends Window {
 const AddTransaction = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<FormData>({
     type: "",
     vendor: "",
@@ -316,16 +320,112 @@ const AddTransaction = () => {
     }, 500);
   };
 
-  const filteredCategories = categories.filter(cat => {
-    if (!formData.type) return true; // Show all categories if no type selected
-    return formData.type === "income" ? 
-      cat.name.toLowerCase().includes("income") || cat.name.toLowerCase().includes("revenue") :
-      cat.name.toLowerCase().includes("expense") || cat.name.toLowerCase().includes("cost");
-  });
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    setIsUploading(true);
+
+    try {
+      const extractedData = await extractTransactionData(file);
+
+      // Find the matching category by name
+      const matchingCategory = categories.find(cat => 
+        cat.name.toLowerCase() === extractedData.category_id?.toLowerCase()
+      );
+
+      // Update form with extracted data
+      setFormData(prev => ({
+        ...prev,
+        type: extractedData.type || prev.type,
+        vendor: extractedData.vendor || prev.vendor,
+        amount: extractedData.amount?.toString() || prev.amount,
+        gstRate: (extractedData.gstRate as GSTRate) || prev.gstRate,
+        description: extractedData.description || prev.description,
+        date: extractedData.date || prev.date,
+        category_id: matchingCategory?.id || prev.category_id
+      }));
+
+      toast({
+        title: "Success",
+        description: "Bill processed successfully! Please review the details."
+      });
+    } catch (error: any) {
+      console.error('Error processing bill:', error);
+      
+      let errorMessage = "Failed to process bill";
+      if (error.message.includes('API key')) {
+        errorMessage = "Gemini API key is not configured. Please contact your administrator.";
+      } else if (error.message.includes('403')) {
+        errorMessage = "Access denied. Please check your API key configuration.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const filteredCategories = categories;
 
   return (
     <div className="container mx-auto py-8">
       <div className="px-4 py-6 max-w-2xl mx-auto">
+        {/* Bill Upload Section */}
+        <Card className="mb-6 border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+              <FileText className="w-5 h-5 text-purple-600 mr-2" />
+              Upload Bill/Invoice
+            </CardTitle>
+            <CardDescription>
+              Upload a bill or invoice to automatically extract transaction details
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="bill-upload"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500">PDF, PNG, JPG (MAX. 10MB)</p>
+                  </div>
+                  <input
+                    id="bill-upload"
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                </label>
+              </div>
+              {selectedFile && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center">
+                    <FileText className="w-5 h-5 text-gray-500 mr-2" />
+                    <span className="text-sm text-gray-700">{selectedFile.name}</span>
+                  </div>
+                  {isUploading && (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Voice Input Section */}
         <Card className="mb-6 border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
